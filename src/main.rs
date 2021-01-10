@@ -60,8 +60,10 @@ fn main() {
         }
     };
     let mut e = merge_envs(ens, dir).unwrap();
-    for (k, v) in sets {
-        set(&mut e, k, v);
+    for st in sets {
+        if let Some((k, v)) = st {
+            set(&mut e, k, v);
+        }
     }
     run_with_env(cmd, e);
 }

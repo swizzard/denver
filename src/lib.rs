@@ -15,11 +15,26 @@ pub fn read_lines(pth: &dyn AsRef<Path>) -> io::Result<io::Lines<io::BufReader<F
     Ok(io::BufReader::new(f).lines())
 }
 
-pub fn split_line(s: String) -> (String, String) {
-    let mut sp = s.split("=");
-    let a = sp.next().unwrap();
-    let b = sp.next().unwrap();
-    (a.to_string(), b.to_string())
+fn is_valid_ident(s: &str) -> bool {
+    if let Some(fst) = s.chars().next() {
+        fst.is_alphabetic()
+    } else {
+        false
+    }
+}
+
+pub fn split_line(s: String) -> Option<(String, String)> {
+    if is_valid_ident(&s) {
+        let mut sp = s.split("=");
+        let a = sp.next().unwrap();
+        if let Some(b) = sp.next() {
+            Some((a.to_string(), b.to_string()))
+        } else {
+            None
+        }
+    } else {
+        None
+    }
 }
 
 pub fn to_denvm(v: Vec<(String, String)>) -> DenvM {
@@ -88,10 +103,10 @@ fn get_envf_path(name: Option<String>) -> io::Result<PathBuf> {
 fn name_to_denvm(name: Option<String>) -> io::Result<DenvM> {
     let pth = get_envf_path(name)?;
     let lines = read_lines(&pth)?;
-    let lines: Vec<(String, String)> = lines
+    lines
         .map(|line| line.map(|l| split_line(l)))
-        .collect::<io::Result<Vec<(String, String)>>>()?;
-    Ok(to_denvm(lines))
+        .filter_map(|x| x.transpose())
+        .collect()
 }
 
 pub enum Dir {
@@ -131,6 +146,21 @@ mod test {
             .lines()
             .map(|s| s.to_owned())
             .map(|s| split_line(s))
+            .filter_map(|x| x)
+            .collect();
+        let m = to_denvm(it);
+        assert_eq!(m.get("a"), Some(&"b".to_string()));
+        assert_eq!(m.get("c"), Some(&"d".to_string()));
+    }
+
+    #[test]
+    fn test_to_denvm_cmts() {
+        let s = "a=b\n# comment\nc=d\nx=";
+        let it = s
+            .lines()
+            .map(|s| s.to_owned())
+            .map(|s| split_line(s))
+            .filter_map(|x| x)
             .collect();
         let m = to_denvm(it);
         assert_eq!(m.get("a"), Some(&"b".to_string()));
