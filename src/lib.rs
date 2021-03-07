@@ -28,7 +28,10 @@ pub fn split_line(s: String) -> Option<(String, String)> {
         let mut sp = s.split("=");
         let a = sp.next().unwrap();
         if let Some(b) = sp.next() {
-            Some((a.to_string(), b.to_string()))
+            Some((
+                a.to_string(),
+                b.trim_matches(|c| c == '\'' || c == '"').to_string(),
+            ))
         } else {
             None
         }
