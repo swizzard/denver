@@ -14,4 +14,6 @@ description = "dotenv replacement that merges multiple .env files"
 
 [dependencies]
 clap = "~2.33.3"
+ctrlc = "3.2.0"
+nix = "0.22.1"
 subprocess = "0.2.6"

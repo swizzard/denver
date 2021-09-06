@@ -1,4 +1,6 @@
+extern crate nix;
 extern crate subprocess;
+
 use std::collections::HashMap;
 use std::env;
 use std::ffi::{OsStr, OsString};
@@ -6,7 +8,12 @@ use std::fs::File;
 use std::io::{self, BufRead};
 use std::path::{Path, PathBuf};
 
+use ctrlc::set_handler;
+use nix::sys::signal::{kill, Signal};
+use nix::unistd::Pid;
 use subprocess::{Popen, PopenConfig};
+
+pub mod cmd;
 
 type DenvM = HashMap<String, String>;
 
@@ -80,7 +87,12 @@ pub fn mk_cfg(env: DenvM) -> PopenConfig {
 
 pub fn run_with_env(s: Vec<impl AsRef<OsStr>>, env: DenvM) -> () {
     let conf = mk_cfg(env);
-    Popen::create(&s, conf).unwrap();
+    let proc = Popen::create(&s, conf).unwrap();
+    let pid = Pid::from_raw(proc.pid().unwrap() as i32);
+    set_handler(move || {
+        kill(pid, Signal::SIGINT).unwrap();
+    })
+    .unwrap();
 }
 
 pub fn get_vars() -> DenvM {
