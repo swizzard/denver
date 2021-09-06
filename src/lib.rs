@@ -11,13 +11,13 @@ use std::path::{Path, PathBuf};
 use ctrlc::set_handler;
 use nix::sys::signal::{kill, Signal};
 use nix::unistd::Pid;
-use subprocess::{Popen, PopenConfig};
+use subprocess::{Popen, PopenConfig, PopenError};
 
 pub mod cmd;
 
 type DenvM = HashMap<String, String>;
 
-pub fn read_lines(pth: &dyn AsRef<Path>) -> io::Result<io::Lines<io::BufReader<File>>> {
+fn read_lines(pth: &dyn AsRef<Path>) -> io::Result<io::Lines<io::BufReader<File>>> {
     let f = File::open(pth)?;
     Ok(io::BufReader::new(f).lines())
 }
@@ -47,11 +47,11 @@ pub fn split_line(s: String) -> Option<(String, String)> {
     }
 }
 
-pub fn to_denvm(v: Vec<(String, String)>) -> DenvM {
+fn to_denvm(v: Vec<(String, String)>) -> DenvM {
     v.into_iter().collect()
 }
 
-pub fn mk_env(de: DenvM) -> Option<Vec<(OsString, OsString)>> {
+fn mk_env(de: DenvM) -> Option<Vec<(OsString, OsString)>> {
     Some(
         de.iter()
             .map(|(k, v)| (OsString::from(k), OsString::from(v)))
@@ -70,32 +70,44 @@ fn merge(fst: DenvM, snd: DenvM) -> DenvM {
     merged
 }
 
-pub fn merge_l(l: DenvM, r: DenvM) -> DenvM {
+fn merge_l(l: DenvM, r: DenvM) -> DenvM {
     merge(r, l)
 }
 
-pub fn merge_r(l: DenvM, r: DenvM) -> DenvM {
+fn merge_r(l: DenvM, r: DenvM) -> DenvM {
     merge(l, r)
 }
 
-pub fn mk_cfg(env: DenvM) -> PopenConfig {
+fn mk_cfg(env: DenvM) -> PopenConfig {
     PopenConfig {
         env: mk_env(env),
         ..Default::default()
     }
 }
 
-pub fn run_with_env(s: Vec<impl AsRef<OsStr>>, env: DenvM) -> () {
+fn handle_pe(err: subprocess::PopenError) -> io::Error {
+    match err {
+        PopenError::IoError(e) => io::Error::new(io::ErrorKind::Other, e.to_string()),
+        PopenError::LogicError(e) => io::Error::new(io::ErrorKind::Other, e),
+        _ => io::Error::new(io::ErrorKind::Other, "Unknown error"),
+    }
+}
+
+pub fn run_with_env(s: Vec<impl AsRef<OsStr>>, env: DenvM) -> io::Result<()> {
     let conf = mk_cfg(env);
-    let proc = Popen::create(&s, conf).unwrap();
-    let pid = Pid::from_raw(proc.pid().unwrap() as i32);
+    let proc = Popen::create(&s, conf).map_err(handle_pe)?;
+    let pid = proc
+        .pid()
+        .ok_or(io::Error::new(io::ErrorKind::Other, "Process error"))?;
+    let pid = Pid::from_raw(pid as i32);
     set_handler(move || {
         kill(pid, Signal::SIGINT).unwrap();
     })
     .unwrap();
+    Ok(())
 }
 
-pub fn get_vars() -> DenvM {
+fn get_vars() -> DenvM {
     to_denvm(env::vars().into_iter().collect())
 }
 
@@ -225,13 +237,14 @@ mod test {
     }
 
     #[test]
-    fn test_run_with_env() {
+    fn test_run_with_env() -> io::Result<()> {
         let de: DenvM = vec![("A".to_string(), "b".to_string())]
             .into_iter()
             .collect();
         let argv = vec!["echo", "$A"];
         println!("{:?}", argv);
-        run_with_env(argv, de);
+        run_with_env(argv, de)?;
+        Ok(())
     }
 
     #[test]

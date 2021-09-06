@@ -1,6 +1,7 @@
 use crate::{merge_envs, set, split_line, Dir};
 use clap::{App, Arg, ArgMatches};
 use std::collections::HashMap;
+use std::io;
 
 pub fn denver_arg<'a, 'b>() -> App<'a, 'b> {
     App::new("denver")
@@ -44,7 +45,23 @@ pub fn denver_arg<'a, 'b>() -> App<'a, 'b> {
         )
 }
 
-pub fn get_cmd<'a>(matches: &'a ArgMatches<'a>) -> Vec<&'a str> {
+pub fn get_args<'a>(
+    matches: &'a ArgMatches,
+) -> io::Result<(Vec<&'a str>, HashMap<String, String>)> {
+    let cmd = get_cmd(matches);
+    let ens = get_ens(matches);
+    let sets = get_sets(matches);
+    let dir = get_dir(matches);
+    let mut e = merge_envs(ens, dir)?;
+    for st in sets {
+        if let Some((k, v)) = st {
+            set(&mut e, k, v);
+        }
+    }
+    Ok((cmd, e))
+}
+
+fn get_cmd<'a>(matches: &'a ArgMatches<'a>) -> Vec<&'a str> {
     matches
         .value_of("cmd")
         .unwrap()
@@ -52,34 +69,20 @@ pub fn get_cmd<'a>(matches: &'a ArgMatches<'a>) -> Vec<&'a str> {
         .collect()
 }
 
-pub fn get_ens<'a>(matches: &'a ArgMatches<'a>) -> Vec<&'a str> {
+fn get_ens<'a>(matches: &'a ArgMatches<'a>) -> Vec<&'a str> {
     matches.values_of("env").map_or(Vec::new(), |v| v.collect())
 }
 
-pub fn get_sets<'a>(matches: &'a ArgMatches) -> Vec<Option<(String, String)>> {
+fn get_sets<'a>(matches: &'a ArgMatches) -> Vec<Option<(String, String)>> {
     matches.values_of("set").map_or(Vec::new(), |v| {
         v.map(|v| split_line(v.to_string())).collect()
     })
 }
 
-pub fn get_dir<'a>(matches: &'a ArgMatches) -> Dir {
+fn get_dir<'a>(matches: &'a ArgMatches) -> Dir {
     if matches.is_present("merge_left") {
         Dir::L
     } else {
         Dir::R
     }
-}
-
-pub fn get_args<'a>(matches: &'a ArgMatches) -> (Vec<&'a str>, HashMap<String, String>) {
-    let cmd = get_cmd(matches);
-    let ens = get_ens(matches);
-    let sets = get_sets(matches);
-    let dir = get_dir(matches);
-    let mut e = merge_envs(ens, dir).unwrap();
-    for st in sets {
-        if let Some((k, v)) = st {
-            set(&mut e, k, v);
-        }
-    }
-    (cmd, e)
 }
