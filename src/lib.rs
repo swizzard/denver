@@ -158,6 +158,14 @@ pub fn merge_envs(names: Vec<&str>, dir: Dir) -> io::Result<DenvM> {
     Ok(es.into_iter().fold(e, f))
 }
 
+pub fn get_from(env_name: String, var_name: String) -> io::Result<Option<(String, String)>> {
+    let e = name_to_denvm(Some(env_name.to_string()))?;
+    match e.get(&var_name) {
+        Some(v) => Ok(Some((var_name, v.to_string()))),
+        None => Ok(None),
+    }
+}
+
 pub fn set(env: &mut DenvM, k: String, v: String) -> () {
     env.insert(k, v);
 }

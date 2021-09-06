@@ -1,4 +1,4 @@
-use crate::{merge_envs, set, split_line, Dir};
+use crate::{get_from, merge_envs, set, split_line, Dir};
 use clap::{App, Arg, ArgMatches};
 use std::collections::HashMap;
 use std::io;
@@ -22,7 +22,7 @@ pub fn denver_arg<'a, 'b>() -> App<'a, 'b> {
                 .short("s")
                 .long("set")
                 .value_name("KEY=VALUE")
-                .help("Set one-time vars")
+                .help("Set one-time vars (clobbers -f)")
                 .takes_value(true)
                 .multiple(true),
         )
@@ -32,6 +32,15 @@ pub fn denver_arg<'a, 'b>() -> App<'a, 'b> {
                 .long("merge_left")
                 .help("Merge left, preserving earlier values")
                 .takes_value(false),
+        )
+        .arg(
+            Arg::with_name("from")
+                .short("f")
+                .long("from")
+                .value_name("KEY=ENV")
+                .help("Set a variable from a specific environment")
+                .takes_value(true)
+                .multiple(true),
         )
         .arg(
             Arg::with_name("cmd")
@@ -50,14 +59,12 @@ pub fn get_args<'a>(
 ) -> io::Result<(Vec<&'a str>, HashMap<String, String>)> {
     let cmd = get_cmd(matches);
     let ens = get_ens(matches);
+    let froms = get_froms(matches)?;
     let sets = get_sets(matches);
     let dir = get_dir(matches);
     let mut e = merge_envs(ens, dir)?;
-    for st in sets {
-        if let Some((k, v)) = st {
-            set(&mut e, k, v);
-        }
-    }
+    set_froms(froms, &mut e)?;
+    set_sets(sets, &mut e);
     Ok((cmd, e))
 }
 
@@ -73,10 +80,46 @@ fn get_ens<'a>(matches: &'a ArgMatches<'a>) -> Vec<&'a str> {
     matches.values_of("env").map_or(Vec::new(), |v| v.collect())
 }
 
-fn get_sets<'a>(matches: &'a ArgMatches) -> Vec<Option<(String, String)>> {
-    matches.values_of("set").map_or(Vec::new(), |v| {
+fn get_froms<'a>(matches: &'a ArgMatches<'a>) -> io::Result<Vec<Option<(String, String)>>> {
+    let fs = matches.values_of("from").map_or(Vec::new(), |v| {
         v.map(|v| split_line(v.to_string())).collect()
-    })
+    });
+    fs.into_iter()
+        .filter(|v| v.is_some())
+        .map(|v| v.unwrap())
+        .map(|(k, v)| get_from(v, k))
+        .collect()
+}
+
+fn set_froms(
+    froms: Vec<Option<(String, String)>>,
+    mut e: &mut HashMap<String, String>,
+) -> io::Result<()> {
+    for f in froms {
+        if let Some((k, v)) = f {
+            set(&mut e, k, v);
+        }
+    }
+    Ok(())
+}
+
+fn get_sets<'a>(matches: &'a ArgMatches) -> Vec<Option<(String, String)>> {
+    matches
+        .values_of("set")
+        .map_or(Vec::new(), |v| {
+            v.map(|v| split_line(v.to_string())).collect()
+        })
+        .into_iter()
+        .filter(|v| v.is_some())
+        .collect()
+}
+
+fn set_sets(sets: Vec<Option<(String, String)>>, mut e: &mut HashMap<String, String>) {
+    for st in sets {
+        if let Some((k, v)) = st {
+            set(&mut e, k, v);
+        }
+    }
 }
 
 fn get_dir<'a>(matches: &'a ArgMatches) -> Dir {
