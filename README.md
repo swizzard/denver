@@ -3,8 +3,7 @@
 ### A dotenv replacement
 
 ## MOTIVATION
-Say you work on a web app. You probably have a local development database, one or more dev/staging/prod databases, a few sets of API keys, etc. If you're like me, you use [dotenv](https://pypi.org/project/python-dotenv/) or [dotenv](https://www.npmjs.com/package/dotenv) or [dotenv](https://github.com/bkeepers/dotenv) to handle your local config. If you're also like me, you're tired of manually editing your `.env` file every time you want to switch environments. `denver` is a little tool that
-lets you not have to do that.
+Say you work on a web app. You probably have a local development database, one or more dev/staging/prod databases, a few sets of API keys, etc. If you're like me, you use [dotenv](https://pypi.org/project/python-dotenv/) or [dotenv](https://www.npmjs.com/package/dotenv) or [dotenv](https://github.com/bkeepers/dotenv) to handle your local config. If you're also like me, you're tired of manually editing your `.env` file every time you want to switch environments. `denver` is a little tool that lets you not have to do that.
 
 
 ## USAGE

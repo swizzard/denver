@@ -95,15 +95,13 @@ fn set_froms(
     froms: Vec<Option<(String, String)>>,
     mut e: &mut HashMap<String, String>,
 ) -> io::Result<()> {
-    for f in froms {
-        if let Some((k, v)) = f {
-            set(&mut e, k, v);
-        }
+    for (k, v) in froms.into_iter().flatten() {
+        set(&mut e, k, v)
     }
     Ok(())
 }
 
-fn get_sets<'a>(matches: &'a ArgMatches) -> Vec<Option<(String, String)>> {
+fn get_sets(matches: &ArgMatches) -> Vec<Option<(String, String)>> {
     matches
         .values_of("set")
         .map_or(Vec::new(), |v| {
@@ -115,14 +113,12 @@ fn get_sets<'a>(matches: &'a ArgMatches) -> Vec<Option<(String, String)>> {
 }
 
 fn set_sets(sets: Vec<Option<(String, String)>>, mut e: &mut HashMap<String, String>) {
-    for st in sets {
-        if let Some((k, v)) = st {
-            set(&mut e, k, v);
-        }
+    for (k, v) in sets.into_iter().flatten() {
+        set(&mut e, k, v);
     }
 }
 
-fn get_dir<'a>(matches: &'a ArgMatches) -> Dir {
+fn get_dir(matches: &ArgMatches) -> Dir {
     if matches.is_present("merge_left") {
         Dir::L
     } else {

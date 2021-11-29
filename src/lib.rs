@@ -32,16 +32,12 @@ fn is_valid_ident(s: &str) -> bool {
 
 pub fn split_line(s: String) -> Option<(String, String)> {
     if is_valid_ident(&s) {
-        let mut sp = s.split("=");
-        let a = sp.next().unwrap();
-        if let Some(b) = sp.next() {
-            Some((
+        s.split_once("=").map(|(a, b)| {
+            (
                 a.to_string(),
                 b.trim_matches(|c| c == '\'' || c == '"').to_string(),
-            ))
-        } else {
-            None
-        }
+            )
+        })
     } else {
         None
     }
